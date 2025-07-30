@@ -5,3 +5,6 @@ members = [
 ]
 resolver = "2"
 
+[dependencies]
+getrandom = { version = "0.3.3", features = ["wasm_js"] }
+
