@@ -4,3 +4,6 @@ members = [
     "vault_crypto", "vault_wasm",
 ]
 resolver = "2"
+
+[patch.crates-io]
+getrandom = { version = "0.2", features = ["wasm-js"] }
