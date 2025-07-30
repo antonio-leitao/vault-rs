@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "vault",
+    "vault_crypto", "vault_wasm",
+]

@@ -1,0 +1,56 @@
+name: Build and Deploy WASM to Website
+
+# Run this workflow on every push to the `main` branch
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Check out the Rust source code (`vault-rs` repo)
+      - name: Checkout Rust Repo
+        uses: actions/checkout@v4
+
+      # 2. Set up the Rust environment and install wasm-pack
+      - name: Install Rust and wasm-pack
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo install wasm-pack
+
+      # 3. Build the WASM package
+      # The output will be in `vault_wasm/pkg` relative to the repo root
+      - name: Build WASM Package
+        run: wasm-pack build ./vault_wasm --target web --out-dir ./vault_wasm/pkg
+
+      # 4. Check out the website repository (`vault-web` repo)
+      # We use the PAT we created to get push access.
+      # We check it out into a separate directory called `site`.
+      - name: Checkout Website Repo
+        uses: actions/checkout@v4
+        with:
+          repository: antonio-leitao/vault-web
+          path: site
+          token: ${{ secrets.VAULT_DEPLOY_TOKEN }}
+
+      # 5. Copy the built WASM package into the website repo checkout
+      - name: Copy WASM build to site
+        run: cp -r ./vault_wasm/pkg/* ./site/pkg/
+
+      # 6. Commit and push the changes to the website repository
+      - name: Commit and Push to Website Repo
+        run: |
+          cd site
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Only commit and push if there are actual changes
+          if ! git diff-index --quiet HEAD; then
+            git add .
+            git commit -m "Update WASM build from vault-rs"
+            git push
+          else
+            echo "No changes to WASM build. Nothing to commit."
+          fi
