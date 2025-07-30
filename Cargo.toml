@@ -6,4 +6,4 @@ members = [
 resolver = "2"
 
 [patch.crates-io]
-getrandom = { version = "0.2", features = ["wasm-js"] }
+getrandom = { version = "0.3.3", features = ["wasm_js"] }
