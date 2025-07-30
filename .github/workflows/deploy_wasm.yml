@@ -20,6 +20,9 @@ jobs:
         run: |
           rustup target add wasm32-unknown-unknown
           cargo install wasm-pack
+
+      - name: Update Dependencies & Generate Lockfile
+        run: cargo update
       # 3. Create .cargo/config.toml to enable wasm_js for getrandom v0.3+
       - name: Create .cargo/config.toml for WASM build
         run: |
