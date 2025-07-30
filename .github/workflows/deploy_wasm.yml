@@ -20,8 +20,13 @@ jobs:
         run: |
           rustup target add wasm32-unknown-unknown
           cargo install wasm-pack
-
-      # 3. Build the WASM package
+      # 3. Create .cargo/config.toml to enable wasm_js for getrandom v0.3+
+      - name: Create .cargo/config.toml for WASM build
+        run: |
+          mkdir -p .cargo
+          echo '[target.wasm32-unknown-unknown.getrandom]' >> .cargo/config.toml
+          echo 'rustc-cfg = ["wasm_js"]' >> .cargo/config.toml
+      # 3.5. Build the WASM package
       # The output will be in `vault_wasm/pkg` relative to the repo root
       - name: Build WASM Package
         run: wasm-pack build ./vault_wasm --target web --out-dir ./vault_wasm/pkg
