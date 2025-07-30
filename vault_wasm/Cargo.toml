@@ -13,4 +13,6 @@ vault_crypto = { path = "../vault_crypto" }
 wasm-bindgen = "0.2.100"
 web-sys = { version = "0.3.77", features = ["console"] }
 getrandom = { version = "0.2.16", features = ["js"] }
-getrandom03 = { package = "getrandom", version = "0.3.3", features = ["wasm_js"] }  # For v0.3.x dependencies
+# Force getrandom 0.3 to have the wasm_js feature
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.3.3", features = ["wasm_js"] }
