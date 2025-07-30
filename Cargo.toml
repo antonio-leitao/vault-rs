@@ -3,3 +3,4 @@ members = [
     "vault",
     "vault_crypto", "vault_wasm",
 ]
+resolver = "2"
