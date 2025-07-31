@@ -1,64 +1,80 @@
-name: Build and Deploy WASM to Website
+name: Build and Deploy WASM
 
-# Run this workflow on every push to the `main` branch
 on:
   push:
-    branches:
-      - master
+    branches: [master]
+    # Optional: Only trigger on changes to vault_crypto
+    # paths:
+    #   - 'vault_crypto/**'
+    #   - '.github/workflows/build-and-deploy-wasm.yml'
 
 jobs:
-  build_and_deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Check out the Rust source code (`vault-rs` repo)
-      - name: Checkout Rust Repo
+      # Checkout the current repository (the whole workspace)
+      - name: Checkout vault workspace
         uses: actions/checkout@v4
 
-      # 2. Set up the Rust environment and install wasm-pack
-      - name: Install Rust and wasm-pack
-        run: |
-          rustup target add wasm32-unknown-unknown
-          cargo install wasm-pack
+      # Setup Rust
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
 
-      - name: Update Dependencies & Generate Lockfile
-        run: cargo update
-      # 3. Create .cargo/config.toml to enable wasm_js for getrandom v0.3+
-      - name: Create .cargo/config.toml for WASM build
-        run: |
-          mkdir -p .cargo
-          echo '[target.wasm32-unknown-unknown.getrandom]' >> .cargo/config.toml
-          echo 'rustc-cfg = ["wasm_js"]' >> .cargo/config.toml
-      # 3.5. Build the WASM package
-      # The output will be in `vault_wasm/pkg` relative to the repo root
-      - name: Build WASM Package
-        run: wasm-pack build ./vault_wasm --target web --out-dir ./vault_wasm/pkg
+      # Install wasm-pack
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
-      # 4. Check out the website repository (`vault-web` repo)
-      # We use the PAT we created to get push access.
-      # We check it out into a separate directory called `site`.
-      - name: Checkout Website Repo
+      # Build WASM from the workspace
+      - name: Build WASM
+        run: |
+          # Navigate to vault_crypto within the workspace
+          cd vault_crypto
+
+          # Build with wasm-pack
+          wasm-pack build --target web --out-dir pkg --release
+
+          # Show what was built
+          echo "Built files:"
+          ls -la pkg/
+
+      # Checkout the vault-web repository
+      - name: Checkout vault-web
         uses: actions/checkout@v4
         with:
           repository: antonio-leitao/vault-web
-          path: site
           token: ${{ secrets.VAULT_DEPLOY_TOKEN }}
+          path: vault-web
+          ref: main # or master, depending on your default branch
 
-      # 5. Copy the built WASM package into the website repo checkout
-      - name: Copy WASM build to site
-        run: cp -r ./vault_wasm/pkg/* ./site/pkg/
-
-      # 6. Commit and push the changes to the website repository
-      - name: Commit and Push to Website Repo
+      # Copy built files to vault-web
+      - name: Copy WASM files
         run: |
-          cd site
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Only commit and push if there are actual changes
-          if ! git diff-index --quiet HEAD; then
+          # Create pkg directory if it doesn't exist
+          mkdir -p vault-web/pkg
+
+          # Copy all built files from vault_crypto/pkg to vault-web/pkg
+          cp -r vault_crypto/pkg/* vault-web/pkg/
+
+          # List copied files for verification
+          echo "Copied files:"
+          ls -la vault-web/pkg/
+
+      # Commit and push to vault-web
+      - name: Commit and push
+        run: |
+          cd vault-web
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+          # Check if there are changes
+          if [ -n "$(git status --porcelain)" ]; then
             git add .
-            git commit -m "Update WASM build from vault-rs"
+            git commit -m "Update WASM build from vault@${{ github.sha }}"
             git push
+            echo "✅ Successfully deployed WASM to vault-web"
           else
-            echo "No changes to WASM build. Nothing to commit."
+            echo "📝 No changes to commit"
           fi
