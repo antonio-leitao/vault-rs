@@ -43,7 +43,7 @@ jobs:
           repository: antonio-leitao/vault-web
           token: ${{ secrets.WASM_DEPLOY_TOKEN }}
           path: vault-web
-          ref: main # or master, depending on your default branch
+          ref: master
 
       # Copy built files to vault-web
       - name: Copy WASM files
