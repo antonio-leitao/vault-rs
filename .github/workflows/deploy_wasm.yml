@@ -27,6 +27,12 @@ jobs:
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
+      - name: Configure WASM dependencies
+        run: |
+          mkdir -p .cargo
+          echo '[target.wasm32-unknown-unknown.dependencies]' >> .cargo/config.toml
+          echo 'getrandom = { version = "0.2", features = ["js"] }' >> .cargo/config.toml'
+
       # Build WASM from the workspace
       - name: Build WASM
         run: |
