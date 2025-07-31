@@ -4,3 +4,6 @@ members = [
     "vault_crypto",
 ]
 resolver = "2"
+
+[patch.crates-io]
+getrandom = { version = "0.2", features = ["js"] }
