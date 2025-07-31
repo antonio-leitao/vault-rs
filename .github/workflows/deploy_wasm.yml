@@ -3,10 +3,6 @@ name: Build and Deploy WASM
 on:
   push:
     branches: [master]
-    # Optional: Only trigger on changes to vault_crypto
-    # paths:
-    #   - 'vault_crypto/**'
-    #   - '.github/workflows/build-and-deploy-wasm.yml'
 
 jobs:
   build-and-deploy:
@@ -45,7 +41,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: antonio-leitao/vault-web
-          token: ${{ secrets.VAULT_DEPLOY_TOKEN }}
+          token: ${{ secrets.WASM_DEPLOY_TOKEN }}
           path: vault-web
           ref: main # or master, depending on your default branch
 
