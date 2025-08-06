@@ -277,7 +277,7 @@ dependencies = [
 
 [[package]]
 name = "creds"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "clap",
@@ -292,7 +292,7 @@ dependencies = [
 
 [[package]]
 name = "crypto"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "aes-gcm",
  "argon2",
