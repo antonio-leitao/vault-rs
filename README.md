@@ -14,9 +14,18 @@ A simple yet robust command-line tool for managing credentials with strong encry
 
 ## Installation
 
+### Homebrew (macOS/Linux)
+
+```bash
+# Install via Homebrew tap
+brew install antonio-leitao/taps/creds
+```
+
+### From Source
+
 ```bash
 # Clone the repository
-git clone <your-repo>
+git clone https://github.com/antonio-leitao/creds.git
 cd creds
 
 # Build the project
@@ -25,6 +34,14 @@ cargo build --release
 # Optional: Install globally
 cargo install --path creds
 ```
+
+### Download Binary
+
+Download pre-built binaries from the [releases page](https://github.com/antonio-leitao/creds/releases):
+
+- macOS Intel: `creds-x86_64-apple-darwin.tar.gz`
+- macOS Apple Silicon: `creds-aarch64-apple-darwin.tar.gz`
+- Linux x86_64: `creds-x86_64-linux.tar.gz`
 
 ## Quick Start
 

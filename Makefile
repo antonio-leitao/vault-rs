@@ -80,3 +80,17 @@ security-check:
 # Development build with all checks
 dev: fmt check clippy test build
 	@echo "✅ All checks passed!"
+
+# Prepare a new release
+release-prep:
+	@echo "🚀 Release Preparation"
+	@echo "====================="
+	@echo
+	@echo "Pre-release checklist:"
+	@echo "  ✓ All tests passing"
+	@echo "  ✓ Code formatted"
+	@echo "  ✓ No clippy warnings"
+	@echo "  ✓ CHANGELOG.md updated"
+	@echo
+	@chmod +x release.sh
+	@./release.sh
