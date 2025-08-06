@@ -7,7 +7,6 @@ test_creds.sh
 demo.sh
 release.sh
 # Cargo lock file (optional - you might want to commit this for applications)
-Cargo.lock
 
 # IDE files
 .idea/
