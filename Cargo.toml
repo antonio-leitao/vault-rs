@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "vault",
-    "vault_crypto",
+    "crypto",
+    "creds",
 ]
 resolver = "2"

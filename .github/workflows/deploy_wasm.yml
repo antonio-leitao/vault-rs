@@ -26,8 +26,8 @@ jobs:
       # Build WASM from the workspace
       - name: Build WASM
         run: |
-          # Navigate to vault_crypto within the workspace
-          cd vault_crypto
+          # Navigate to crypto within the workspace
+          cd crypto
 
           # Build with wasm-pack
           wasm-pack build --target web --out-dir pkg --release
@@ -52,7 +52,7 @@ jobs:
           mkdir -p vault-web/pkg
 
           # Copy all built files from vault_crypto/pkg to vault-web/pkg
-          cp -r vault_crypto/pkg/* vault-web/pkg/
+          cp -r crypto/pkg/* vault-web/pkg/
 
           # List copied files for verification
           echo "Copied files:"

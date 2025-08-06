@@ -1,5 +1,5 @@
 [package]
-name = "vault"
+name = "creds"
 version = "0.1.0"
 edition = "2024"
 
@@ -8,5 +8,9 @@ clap = { version = "4.5.41", features = ["derive"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.141"
 thiserror = "2.0.12"
-vault_crypto = { path = "../vault_crypto" }
+crypto = { path = "../crypto" }
+rpassword = "7.4.0"
+dirs = "6.0.0"
+chrono = "0.4.41"
+indicatif = "0.18.0"
 

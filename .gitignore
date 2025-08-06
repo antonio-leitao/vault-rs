@@ -1,2 +1,46 @@
-/target
+# Rust build artifacts
+/target/
+**/*.rs.bk
+*.pdb
+
+test_creds.sh
+demo.sh
+# Cargo lock file (optional - you might want to commit this for applications)
 Cargo.lock
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test artifacts
+/tmp/
+/temp/
+
+# User's vault directory (NEVER commit this!)
+.creds/
+
+# WASM build artifacts
+/pkg/
+/wasm-pack.log
+
+# Node modules (if using WASM with npm)
+node_modules/
+package-lock.json
+
+# Debug files
+*.log
+*.pid
+*.seed
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS files
+Thumbs.db
+desktop.ini
