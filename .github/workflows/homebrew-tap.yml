@@ -76,7 +76,7 @@ jobs:
           echo "SHA256=$(cat ${{ matrix.asset_name }}.tar.gz.sha256 | awk '{print $1}')" >> $GITHUB_ENV
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset_name }}
           path: |
@@ -99,16 +99,23 @@ jobs:
         id: get_version
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
       - name: Create Release
         id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
+          files: |
+            artifacts/creds-x86_64-apple-darwin/*.tar.gz
+            artifacts/creds-aarch64-apple-darwin/*.tar.gz
+            artifacts/creds-x86_64-linux/*.tar.gz
           body: |
             # Creds ${{ github.ref_name }}
 
@@ -126,42 +133,12 @@ jobs:
 
             ## Changes
             See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
-
-  upload-assets:
-    name: Upload Release Assets
-    needs: create-release
-    strategy:
-      matrix:
-        include:
-          - target: x86_64-apple-darwin
-            asset_name: creds-x86_64-apple-darwin
-          - target: aarch64-apple-darwin
-            asset_name: creds-aarch64-apple-darwin
-          - target: x86_64-unknown-linux-gnu
-            asset_name: creds-x86_64-linux
-
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: ${{ matrix.asset_name }}
-          path: ./dist
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./dist/${{ matrix.asset_name }}.tar.gz
-          asset_name: ${{ matrix.asset_name }}.tar.gz
-          asset_content_type: application/gzip
 
   update-homebrew-tap:
     name: Update Homebrew Tap
-    needs: [create-release, upload-assets]
+    needs: create-release
     runs-on: ubuntu-latest
 
     steps:
@@ -169,7 +146,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: ./artifacts
 
