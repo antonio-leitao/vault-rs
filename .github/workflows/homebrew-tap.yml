@@ -3,16 +3,14 @@ name: Update Homebrew Tap
 on:
   push:
     tags:
-      - "v*" # Triggers on version tags like v0.1.0
+      - "v*" # Triggers on version tags like v0.1.0, v1.0.0, etc.
   workflow_dispatch: # Allows manual triggering
 
 env:
   CARGO_TERM_COLOR: always
   PROJECT_NAME: creds
+  # Update this to match your tap repository name
   HOMEBREW_TAP_REPO: antonio-leitao/homebrew-taps
-
-permissions:
-  contents: write
 
 jobs:
   build-and-release:
@@ -21,14 +19,14 @@ jobs:
       matrix:
         include:
           # macOS Intel
-          - os: macos-13 # Using macos-13 for Intel for clarity
+          - os: macos-latest
             target: x86_64-apple-darwin
             asset_name: creds-x86_64-apple-darwin
-          # macOS Apple Silicon (ARM64)
-          - os: macos-14 # <-- CHANGE: Use a native ARM64 runner for Apple Silicon
+          # macOS Apple Silicon
+          - os: macos-latest
             target: aarch64-apple-darwin
             asset_name: creds-aarch64-apple-darwin
-          # Linux x86_64
+          # Linux x86_64 (for Linux support via Homebrew)
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             asset_name: creds-x86_64-linux
@@ -45,32 +43,36 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Build Release Binary
-        run: cargo build --release --target ${{ matrix.target }} --package ${{ env.PROJECT_NAME }}
+        run: |
+          cargo build --release --target ${{ matrix.target }} --package creds
 
       - name: Create tarball
         run: |
-          # Create a staging directory
-          mkdir -p staging
-          
-          # Copy binary into staging dir
-          cp target/${{ matrix.target }}/release/${{ env.PROJECT_NAME }} staging/
+          # Create a directory for the archive
+          mkdir -p dist/${{ env.PROJECT_NAME }}
 
-          # Copy README and LICENSE if they exist
-          [ -f README.md ] && cp README.md staging/
-          [ -f LICENSE ] && cp LICENSE staging/
-          
-          # Create completions directory if it exists and copy files
-          if [ -d "completions" ]; then
-            cp -r completions staging/
+          # Copy binary
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            cp target/${{ matrix.target }}/release/${{ env.PROJECT_NAME }} dist/${{ env.PROJECT_NAME }}/
+          else
+            cp target/${{ matrix.target }}/release/${{ env.PROJECT_NAME }} dist/${{ env.PROJECT_NAME }}/
           fi
 
-          # Create the tarball from the staging directory
-          tar -czf ${{ matrix.asset_name }}.tar.gz -C staging .
+          # Copy README and LICENSE if they exist
+          [ -f README.md ] && cp README.md dist/${{ env.PROJECT_NAME }}/
+          [ -f LICENSE ] && cp LICENSE dist/${{ env.PROJECT_NAME }}/
+
+          # Create tarball
+          cd dist
+          tar -czf ${{ matrix.asset_name }}.tar.gz ${{ env.PROJECT_NAME }}
 
           # Calculate SHA256
-          shasum -a 256 ${{ matrix.asset_name }}.tar.gz > ${{ matrix.asset_name }}.tar.gz.sha256
-          
-          # Expose SHA256 to other steps
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            sha256sum ${{ matrix.asset_name }}.tar.gz > ${{ matrix.asset_name }}.tar.gz.sha256
+          else
+            shasum -a 256 ${{ matrix.asset_name }}.tar.gz > ${{ matrix.asset_name }}.tar.gz.sha256
+          fi
+
           echo "SHA256=$(cat ${{ matrix.asset_name }}.tar.gz.sha256 | awk '{print $1}')" >> $GITHUB_ENV
 
       - name: Upload artifacts
@@ -78,27 +80,31 @@ jobs:
         with:
           name: ${{ matrix.asset_name }}
           path: |
-            ${{ matrix.asset_name }}.tar.gz
-            ${{ matrix.asset_name }}.tar.gz.sha256
+            dist/${{ matrix.asset_name }}.tar.gz
+            dist/${{ matrix.asset_name }}.tar.gz.sha256
 
   create-release:
     name: Create GitHub Release
     needs: build-and-release
     runs-on: ubuntu-latest
     outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
       version: ${{ steps.get_version.outputs.version }}
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Get version from tag
         id: get_version
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-      - name: Download all build artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: ./artifacts
 
-      - name: Create Release and Upload Assets
+      - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
@@ -106,8 +112,10 @@ jobs:
           name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
-          # <-- CHANGE: Simplified file globbing
-          files: artifacts/*/*.tar.gz
+          files: |
+            artifacts/creds-x86_64-apple-darwin/*.tar.gz
+            artifacts/creds-aarch64-apple-darwin/*.tar.gz
+            artifacts/creds-x86_64-linux/*.tar.gz
           body: |
             # Creds ${{ github.ref_name }}
 
@@ -117,7 +125,7 @@ jobs:
 
             ### Homebrew (macOS/Linux)
             ```bash
-            brew install ${{ env.HOMEBREW_TAP_REPO }}/creds
+            brew install antonio-leitao/taps/creds
             ```
 
             ### Direct Download
@@ -125,6 +133,8 @@ jobs:
 
             ## Changes
             See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+        env:
+          GITHUB_TOKEN: ${{ secrets.WASM_DEPLOY_TOKEN }}
 
   update-homebrew-tap:
     name: Update Homebrew Tap
@@ -132,31 +142,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download all build artifacts
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: ./artifacts
 
-      - name: Prepare formula variables
-        id: formula_vars
+      - name: Calculate SHA256 checksums
+        id: checksums
         run: |
-          SHA_DARWIN_X86=$(cat artifacts/creds-x86_64-apple-darwin/*.sha256 | awk '{print $1}')
-          SHA_DARWIN_ARM=$(cat artifacts/creds-aarch64-apple-darwin/*.sha256 | awk '{print $1}')
-          SHA_LINUX_X86=$(cat artifacts/creds-x86_64-linux/*.sha256 | awk '{print $1}')
+          # Get SHA256 for each platform
+          SHA_DARWIN_X86=$(cat artifacts/creds-x86_64-apple-darwin/creds-x86_64-apple-darwin.tar.gz.sha256 | awk '{print $1}')
+          SHA_DARWIN_ARM=$(cat artifacts/creds-aarch64-apple-darwin/creds-aarch64-apple-darwin.tar.gz.sha256 | awk '{print $1}')
+          SHA_LINUX_X86=$(cat artifacts/creds-x86_64-linux/creds-x86_64-linux.tar.gz.sha256 | awk '{print $1}')
 
           echo "sha_darwin_x86=$SHA_DARWIN_X86" >> $GITHUB_OUTPUT
           echo "sha_darwin_arm=$SHA_DARWIN_ARM" >> $GITHUB_OUTPUT
           echo "sha_linux_x86=$SHA_LINUX_X86" >> $GITHUB_OUTPUT
 
+          # Debug output
+          echo "macOS Intel SHA256: $SHA_DARWIN_X86"
+          echo "macOS ARM SHA256: $SHA_DARWIN_ARM"
+          echo "Linux x86_64 SHA256: $SHA_LINUX_X86"
+
       - name: Generate Homebrew Formula
-        id: generate_formula
         run: |
-          VERSION="${{ needs.create-release.outputs.version }}"
-          SHA_DARWIN_X86="${{ steps.formula_vars.outputs.sha_darwin_x86 }}"
-          SHA_DARWIN_ARM="${{ steps.formula_vars.outputs.sha_darwin_arm }}"
-          SHA_LINUX_X86="${{ steps.formula_vars.outputs.sha_linux_x86 }}"
-          
-          # Using a heredoc to create the formula file
+          VERSION=${{ needs.create-release.outputs.version }}
+          SHA_DARWIN_X86=${{ steps.checksums.outputs.sha_darwin_x86 }}
+          SHA_DARWIN_ARM=${{ steps.checksums.outputs.sha_darwin_arm }}
+          SHA_LINUX_X86=${{ steps.checksums.outputs.sha_linux_x86 }}
+
           cat > creds.rb << EOF
           class Creds < Formula
             desc "Secure, Git-backed credential manager with strong encryption"
@@ -181,43 +198,69 @@ jobs:
               end
             end
 
+            depends_on "git"
+
             def install
               bin.install "creds"
               
-              # Install shell completions
-              bash_completion.install "completions/creds.bash" if File.exist? "completions/creds.bash"
-              zsh_completion.install "completions/_creds" if File.exist? "completions/_creds"
-              fish_completion.install "completions/creds.fish" if File.exist? "completions/creds.fish"
+              # Install shell completions if they exist
+              if File.exist?("completions/creds.bash")
+                bash_completion.install "completions/creds.bash"
+              end
+              
+              if File.exist?("completions/creds.zsh")
+                zsh_completion.install "completions/_creds"
+              end
+              
+              if File.exist?("completions/creds.fish")
+                fish_completion.install "completions/creds.fish"
+              end
             end
 
             test do
+              # Test that the binary runs
               system "#{bin}/creds", "--version"
+              
+              # Test help command
               assert_match "A secure, Git-backed secret manager", shell_output("#{bin}/creds --help")
             end
           end
           EOF
 
-      - name: Commit formula to Homebrew tap
-        uses: peter-evans/create-pull-request@v6
+          echo "Generated Homebrew formula:"
+          cat creds.rb
+
+      - name: Checkout Homebrew Taps Repository
+        uses: actions/checkout@v4
         with:
-          # Use a token with write permissions to the tap repository
-          token: ${{ secrets.WASM_DEPLOY_TOKEN }}
           repository: ${{ env.HOMEBREW_TAP_REPO }}
+          token: ${{ secrets.WASM_DEPLOY_TOKEN }}
           path: homebrew-taps
-          commit-message: "chore: Update creds formula to v${{ needs.create-release.outputs.version }}"
-          title: "Update creds formula to v${{ needs.create-release.outputs.version }}"
-          body: "Automated update of the \`creds\` formula to version \`${{ needs.create-release.outputs.version }}\`."
-          branch: "update-creds-v${{ needs.create-release.outputs.version }}"
-          base: main # Or your tap's default branch
-          add-paths: |
-            Formula/creds.rb
-          # Custom author and committer details
-          author: GitHub Actions <41898282+github-actions[bot]@users.noreply.github.com>
-          committer: GitHub Actions <41898282+github-actions[bot]@users.noreply.github.com>
-          # This step will create the creds.rb file in the cloned tap repository
-          # It uses the output from the previous step
-          signoff: true
-          # A little script to move the file to the correct location
-          script: |
-            mkdir -p ${{ env.HOMEBREW_TAP_REPO }}/Formula
-            mv creds.rb ${{ env.HOMEBREW_TAP_REPO }}/Formula/creds.rb
+
+      - name: Update Formula in Taps Repository
+        run: |
+          # Copy the formula to the Formula directory
+          mkdir -p homebrew-taps/Formula
+          cp creds.rb homebrew-taps/Formula/
+
+          cd homebrew-taps
+
+          # Configure git
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+          # Commit and push
+          git add Formula/creds.rb
+          git commit -m "Update creds to version ${{ needs.create-release.outputs.version }}" || echo "No changes to commit"
+          git push
+
+      - name: Test Installation Instructions
+        run: |
+          echo "🎉 Homebrew tap updated successfully!"
+          echo ""
+          echo "Users can now install creds with:"
+          echo "  brew tap ${{ env.HOMEBREW_TAP_REPO }}"
+          echo "  brew install creds"
+          echo ""
+          echo "Or in one command:"
+          echo "  brew install ${{ env.HOMEBREW_TAP_REPO }}/creds"
